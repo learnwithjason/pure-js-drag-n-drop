@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>No-Framework JavaScript Drag-n-Drop</title>
+    <style>
+      [data-pickzone],
+      [data-dropzone] {
+        align-items: center;
+        border: 3px dotted black;
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, 50px);
+        justify-content: center;
+        margin-top: 1rem;
+        min-height: 100px;
+      }
+
+      .item {
+        background: rebeccapurple;
+        color: white;
+        cursor: move;
+        width: 50px;
+        height: 50px;
+        /* needs a polyfill for Safari */
+        touch-action: none;
+      }
+
+      .item.dragging {
+        position: absolute;
+        transform: rotate(-5deg);
+      }
+
+      .item.clone {
+        background: #eee;
+        border: 2px solid black;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Waddup chat?!</h1>
+
+    <!-- pick zone -->
+    <div data-pickzone data-dropzone>
+      <div class="item">Item 1</div>
+      <div class="item">Item 2</div>
+      <div class="item">Item 3</div>
+    </div>
+
+    <!-- drop zone -->
+    <div data-dropzone></div>
+
+    <script>
+      const items = document.querySelectorAll('.item');
+
+      [...items].forEach((item) => {
+        // polyfill required for Safari 14
+        item.addEventListener('pointerdown', (event) => {
+          item.style.left = `${item.getBoundingClientRect().left}px`;
+          item.style.top = `${item.getBoundingClientRect().top}px`;
+
+          const clone = item.cloneNode();
+          clone.classList.add('clone');
+
+          item.before(clone);
+
+          item.style.pointerEvents = 'none';
+
+          item.classList.add('dragging');
+          document.body.append(item);
+          item.setPointerCapture(event.pointerId);
+
+          const up = (event) => {
+            clone.after(item);
+            clone.remove();
+            item.style.left = '';
+            item.style.top = '';
+            item.classList.remove('dragging');
+
+            item.removeEventListener('pointerup', up);
+            item.removeEventListener('pointermove', move);
+            item.style.pointerEvents = '';
+
+            item.releasePointerCapture(event.pointerId);
+          };
+
+          const move = (event) => {
+            // Chrome only for now
+            // see https://developer.mozilla.org/en-US/docs/Web/API/MouseEvent/movementX
+            item.style.left = `${
+              parseFloat(item.style.left) + event.movementX
+            }px`;
+            item.style.top = `${
+              parseFloat(item.style.top) + event.movementY
+            }px`;
+
+            const hitTest = document.elementFromPoint(
+              parseFloat(item.style.left),
+              parseFloat(item.style.top)
+            );
+
+            const dropzone = hitTest.closest('[data-dropzone]');
+            if (!dropzone) {
+              return;
+            }
+
+            if (clone.closest('[data-dropzone]') !== dropzone) {
+              dropzone.append(clone);
+              return;
+            }
+
+            const dropzoneChildren = [...dropzone.children];
+
+            const cloneIndex = dropzoneChildren.findIndex((c) => c === clone);
+            dropzoneChildren.forEach((child, index) => {
+              if (hitTest === clone) {
+                return;
+              }
+
+              if (hitTest === child) {
+                if (cloneIndex < index) {
+                  child.after(clone);
+                  return;
+                } else {
+                  child.before(clone);
+                }
+              }
+            });
+          };
+
+          item.addEventListener('pointerup', up);
+          console.log('here');
+          item.addEventListener('pointermove', move);
+        });
+      });
+    </script>
+  </body>
+</html>
